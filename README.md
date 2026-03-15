@@ -1,0 +1,1 @@
+# GOGDNS Update Server
