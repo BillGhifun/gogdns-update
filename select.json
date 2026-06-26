@@ -1,5 +1,5 @@
 {
-  "_comment": "=== GOGDNS 更新节点配置 ===",
+  "_comment": "=== GOGDNS Update Config ===",
   "update_nodes": [
     {
       "name": "更新节点1",
