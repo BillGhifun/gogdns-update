@@ -1,0 +1,13 @@
+{
+  "_comment": "=== GOGDNS 更新节点配置 ===",
+  "update_nodes": [
+    {
+      "name": "更新节点1",
+      "url": "https://gdns.qzz.io/update.json"
+    },
+    {
+      "name": "更新节点2",
+      "url": "https://dns.billghifun.workers.dev/update.json"
+    }
+  ]
+}
