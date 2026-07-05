@@ -1,3 +1,22 @@
+上传ipk包到目标系统中，执行以下命令安装
+```
+opkg install gogdns_xxxx.ipk
+```
+
+如果出现以下提示
+```
+Unknown package 'gogdns'.
+错误
+Collected errors:
+ * pkg_hash_fetch_best_installation_candidate: Packages for gogdns found, but incompatible with the architectures configured
+ * opkg_install_cmd: Cannot install package gogdns.
+opkg install 命令失败，代码 255。
+```
+尝试使用
+```
+opkg install gogdns_xxxx.ipk --force-depends
+```
+
 OpenWrt ipk
 请使用脚本来打包新版二进制程序或使用提供的打包好的文件(可能更新不及时)
 
