@@ -17,6 +17,8 @@ opkg install 命令失败，代码 255。
 opkg install gogdns_xxxx.ipk --force-depends
 ```
 
+
+
 OpenWrt ipk
 请使用脚本来打包新版二进制程序或使用提供的打包好的文件(可能更新不及时)
 
