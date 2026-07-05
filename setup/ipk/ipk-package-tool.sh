@@ -2,7 +2,7 @@
 
 # --- 基础配置 ---
 PKG_NAME="gogdns"
-PKG_VERSION="0.6.89_20260705-043449_Beta"
+PKG_VERSION="0.6.89_20260705-165622_Beta"
 BUILD_DIR="ipk_build"
 
 # --- 1. 架构映射函数 ---
