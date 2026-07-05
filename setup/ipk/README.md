@@ -22,7 +22,7 @@ opkg install gogdns_xxxx.ipk --force-depends
 OpenWrt ipk
 请使用脚本来打包新版二进制程序或使用提供的打包好的文件(可能更新不及时)
 
-复制以下内容为ipk-package-tool.sh
+复制以下内容为`ipk-package-tool.sh`
 
 ```sh
 #!/bin/bash
@@ -165,7 +165,8 @@ else
     build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
 fi
 ```
-把你要打包的相应的原始二进制程序 "gogdns-linux-386" 、"gogdns-linux-amd64" 、"gogdns-linux-arm" 、"gogdns-linux-arm64" 放到与 "ipk-package-tool.sh" 同目录下，然后执行：
+
+把你要打包的相应的原始二进制程序 `gogdns-linux-386`、`gogdns-linux-amd64`、`gogdns-linux-arm`、`gogdns-linux-arm64`放到与`ipk-package-tool.sh`同目录下，然后执行：
 
 ```
 bash ipk-package-tools.sh all
