@@ -2,10 +2,11 @@
 
 # --- 基础配置 ---
 PKG_NAME="gogdns"
-PKG_VERSION="0.6.89_20260705-165622_Beta"
+PKG_VERSION="0.6.89_20260706-163504_Beta"
 BUILD_DIR="ipk_build"
 
 # --- 1. 架构映射函数 ---
+# 负责将 Go 的编译后缀 (amd64, arm 等) 或系统自带的架构 (x86_64, aarch64 等) 转换为 OpenWrt 标准命名
 get_arch_info() {
     local input=$1
     case $input in
@@ -39,7 +40,7 @@ build_ipk() {
     local target_binary="${PKG_NAME}-linux-${bin_suffix}"
     local output_name="${PKG_NAME}_${PKG_VERSION}_${target_arch}.ipk"
 
-    echo ">>> 开始构建: $output_name (使用二进制: $target_binary)"
+    echo ">>> 开始构建: $output_name"
 
     if [ ! -f "./$target_binary" ]; then
         echo "    [跳过] 未找到对应的二进制文件: $target_binary"
@@ -121,40 +122,17 @@ if [ $# -eq 0 ]; then
     get_arch_info "$RAW_ARCH"
     build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
 
-elif [ "$1" == "aarch64" ] || [ "$1" == "arm64" ]; then
-    # 【新增】一键打包所有常见的 64位 ARM 架构
-    echo "模式: 构建所有常见的 aarch64 变体"
-    AARCH64_VARIANTS=(
-        "aarch64_generic"
-        "aarch64_cortex-a53"
-        "aarch64_cortex-a72"
-        "aarch64_cortex-a73"
-    )
-    for arch in "${AARCH64_VARIANTS[@]}"; do
-        # 强制将这些架构名映射到 arm64 二进制文件
-        build_ipk "$arch" "arm64"
-    done
-
 elif [ "$1" == "all" ]; then
-    # 【修改】参数为 all：打包所有支持的架构“全家桶”
+    # 参数为 all：打包所有支持的架构
     echo "模式: 构建所有架构"
-    
-    # x86 系列
-    build_ipk "x86_64" "amd64"
-    build_ipk "i386_pentium4" "386"
-    
-    # aarch64 系列 (共用 arm64 二进制)
-    for arch in "aarch64_generic" "aarch64_cortex-a53" "aarch64_cortex-a72"; do
-        build_ipk "$arch" "arm64"
-    done
-    
-    # armv7 系列 (共用 arm 二进制)
-    for arch in "arm_cortex-a7_neon-vfpv4" "arm_cortex-a15_neon-vfpv4" "arm_cortex-a9_vfpv3-d16"; do
-        build_ipk "$arch" "arm"
+    # 这里定义你想批量打包的 Go 编译后缀列表
+    for suffix in amd64 386 arm64 arm; do
+        get_arch_info "$suffix"
+        build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
     done
 
 else
-    # 带有特定参数：如 ./build.sh arm_cortex-a9
+    # 带有特定参数：如 ./build.sh arm64
     echo "模式: 指定架构 ($1)"
     get_arch_info "$1"
     build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
