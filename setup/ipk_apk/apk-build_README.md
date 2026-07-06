@@ -1,173 +1,114 @@
-上传ipk包到目标系统中，执行以下命令安装
+上传apk包到目标系统中，执行以下命令安装
 ```
-opkg install gogdns_xxxx.ipk
+apk add gogdns_xxxx.apk
 ```
 
 如果出现以下提示
 ```
-Unknown package 'gogdns'.
-错误
-Collected errors:
- * pkg_hash_fetch_best_installation_candidate: Packages for gogdns found, but incompatible with the architectures configured
- * opkg_install_cmd: Cannot install package gogdns.
-opkg install 命令失败，代码 255。
+ERROR: /gogdns.apk: UNTRUSTED signature
 ```
 尝试使用
 ```
-opkg install gogdns_xxxx.ipk --force-depends
+apk add --allow-untrusted gogdns_xxxx.apk
 ```
 
 ---
 
-OpenWrt ipk
+ImmortalWrt apk
 请使用脚本来打包新版二进制程序或使用提供的打包好的文件(可能更新不及时)
 
-复制以下内容为`ipk-package-tool.sh`
+复制以下内容为`apk-package-tool.ps1`
 
 ```sh
-#!/bin/bash
+# ============================================================
+# GOGDNS APK 批量打包 (固定版本号版)
+# 修改下面的 $VERSION 变量后运行即可
+# ============================================================
 
-# --- 基础配置 ---
-PKG_NAME="gogdns"
-PKG_VERSION="0.6.89_20260706-163504_Beta"
-BUILD_DIR="ipk_build"
+# ============================================================
+# !! 发布时，请修改这里 !!
+# 格式: MainVersion.MainVersionServer(保留原格式即可)
+# 例如: 0.6.89.20260706110410
+$VERSION = "0.6.89.20260706163504"
+# ============================================================
 
-# --- 1. 架构映射函数 ---
-# 负责将 Go 的编译后缀 (amd64, arm 等) 或系统自带的架构 (x86_64, aarch64 等) 转换为 OpenWrt 标准命名
-get_arch_info() {
-    local input=$1
-    case $input in
-        amd64|x86_64)
-            PKG_ARCH="x86_64"
-            BINARY_SUFFIX="amd64"
-            ;;
-        386|i386|i686)
-            PKG_ARCH="i386_pentium4"
-            BINARY_SUFFIX="386"
-            ;;
-        arm64|aarch64)
-            PKG_ARCH="aarch64_generic"
-            BINARY_SUFFIX="arm64"
-            ;;
-        arm|armv7l|armv6l)
-            PKG_ARCH="arm_cortex-a7_neon-vfpv4"
-            BINARY_SUFFIX="arm"
-            ;;
-        *)
-            PKG_ARCH=$input
-            BINARY_SUFFIX=$input
-            ;;
-    esac
+$ErrorActionPreference = "Stop"
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$binDir = Join-Path $scriptDir ".."
+
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  GOGDNS APK 批量打包 (固定版本)" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  当前版本: $VERSION" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host ""
+
+# 架构映射
+$archMap = @{
+    "386"   = "i386_pentium4"
+    "amd64" = "x86_64"
+    "arm64" = "aarch64_generic"
+    "arm"   = "arm_cortex-a7_neon-vfpv4"
 }
 
-# --- 2. 核心打包函数 ---
-build_ipk() {
-    local target_arch=$1
-    local bin_suffix=$2
-    local target_binary="${PKG_NAME}-linux-${bin_suffix}"
-    local output_name="${PKG_NAME}_${PKG_VERSION}_${target_arch}.ipk"
+# 读取 nfpm 模板
+$tpl = Get-Content (Join-Path $scriptDir "nfpm.yaml") -Raw
 
-    echo ">>> 开始构建: $output_name"
+# 创建输出目录
+$outDir = Join-Path $scriptDir "output"
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
-    if [ ! -f "./$target_binary" ]; then
-        echo "    [跳过] 未找到对应的二进制文件: $target_binary"
-        return 1
-    fi
+# 批量打包
+$ok = 0; $skip = 0; $fail = 0
+foreach ($suffix in $archMap.Keys) {
+    $arch = $archMap[$suffix]
+    $binFile = Join-Path $binDir "gogdns-linux-$suffix"
+    $outName = "gogdns_${VERSION}_${arch}.apk"
+    $outPath = Join-Path $outDir $outName
 
-    # 清理并创建目录
-    rm -rf $BUILD_DIR
-    mkdir -p $BUILD_DIR/control
-    mkdir -p $BUILD_DIR/data/etc/gogdns
-    mkdir -p $BUILD_DIR/data/etc/init.d
+    Write-Host "[$suffix -> $arch]" -ForegroundColor Yellow
 
-    # 生成 control
-    cat <<EOF > $BUILD_DIR/control/control
-Package: $PKG_NAME
-Version: $PKG_VERSION
-Architecture: $target_arch
-Maintainer: BillGhifun
-Depends: libc, ca-bundle
-Section: net
-Priority: optional
-Description: GOGDNS Server for $target_arch
-EOF
+    if (-not (Test-Path $binFile)) {
+        Write-Host "  [SKIP] 文件不存在" -ForegroundColor Yellow
+        $skip++
+        continue
+    }
 
-    # 生成 postinst
-    cat <<EOF > $BUILD_DIR/control/postinst
-#!/bin/sh
-ln -sf /etc/gogdns/gogdns /usr/bin/gogdns
-chmod +x /etc/gogdns/gogdns
-chmod +x /etc/init.d/gogdns
-mkdir -p /etc/gogdns/workstation
-exit 0
-EOF
-    chmod 755 $BUILD_DIR/control/postinst
+    try {
+        # 复制二进制
+        Copy-Item $binFile (Join-Path $scriptDir "gogdns") -Force
 
-    # 放置二进制文件 (统一重命名为 gogdns)
-    cp "./$target_binary" "$BUILD_DIR/data/etc/gogdns/gogdns"
-    chmod +x "$BUILD_DIR/data/etc/gogdns/gogdns"
+        # 替换生成配置
+        $cfg = $tpl -replace 'arch:\s*"[^"]*"', "arch: `"$arch`""
+        $cfg = $cfg -replace 'version:\s*"[^"]*"', "version: `"$VERSION`""
+        $cfgFile = Join-Path $scriptDir "nfpm_$suffix.yaml"
+        $cfg | Set-Content $cfgFile -Encoding UTF8
 
-    # 生成启动脚本
-    cat <<EOF > $BUILD_DIR/data/etc/init.d/gogdns
-#!/bin/sh /etc/rc.common
-START=99
-USE_PROCD=1
-start_service() {
-    mkdir -p /etc/gogdns
-    procd_open_instance
-    procd_set_param command /etc/gogdns/gogdns
-    procd_set_param chdir /etc/gogdns
-    procd_set_param env GOGDNS_BASE_PATH=/etc/gogdns
-    procd_set_param respawn
-    procd_set_param stdout 1
-    procd_set_param stderr 1
-    procd_close_instance
-}
-stop_service() {
-    killall gogdns
-}
-EOF
-    chmod 755 $BUILD_DIR/data/etc/init.d/gogdns
+        # 打包
+        nfpm.exe package --config $cfgFile --target $outPath 2>&1 | Out-Null
 
-    # 打包
-    echo "2.0" > $BUILD_DIR/debian-binary
-    (cd $BUILD_DIR/control && tar --numeric-owner -czf ../control.tar.gz .)
-    (cd $BUILD_DIR/data && tar --numeric-owner -czf ../data.tar.gz .)
-    (cd $BUILD_DIR && tar --numeric-owner -czf ../$output_name debian-binary control.tar.gz data.tar.gz)
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  [OK] $outName" -ForegroundColor Green
+            $ok++
+        } else {
+            Write-Host "  [FAIL] 打包失败" -ForegroundColor Red
+            $fail++
+        }
 
-    # 清理
-    rm -rf $BUILD_DIR
-    echo "    [成功] 输出文件: $output_name"
-    echo "-----------------------------------"
+        # 清理临时文件
+        Remove-Item $cfgFile -Force -ErrorAction SilentlyContinue
+        Remove-Item (Join-Path $scriptDir "gogdns") -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "  [FAIL] $_" -ForegroundColor Red
+        $fail++
+    }
 }
 
-# --- 3. 运行逻辑处理 ---
-if [ $# -eq 0 ]; then
-    # 无参数：自动检测当前系统架构
-    RAW_ARCH=$(uname -m)
-    echo "模式: 自动检测 ($RAW_ARCH)"
-    get_arch_info "$RAW_ARCH"
-    build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
-
-elif [ "$1" == "all" ]; then
-    # 参数为 all：打包所有支持的架构
-    echo "模式: 构建所有架构"
-    # 这里定义你想批量打包的 Go 编译后缀列表
-    for suffix in amd64 386 arm64 arm; do
-        get_arch_info "$suffix"
-        build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
-    done
-
-else
-    # 带有特定参数：如 ./build.sh arm64
-    echo "模式: 指定架构 ($1)"
-    get_arch_info "$1"
-    build_ipk "$PKG_ARCH" "$BINARY_SUFFIX"
-fi
+Write-Host ""
+Write-Host "============================================" -ForegroundColor Cyan
+Write-Host "  打包完成: 成功 $ok | 跳过 $skip | 失败 $fail" -ForegroundColor Cyan
+Write-Host "  输出目录: $outDir" -ForegroundColor Cyan
+Write-Host "============================================" -ForegroundColor Cyan
 ```
 
-把你要打包的相应的原始二进制程序 `gogdns-linux-386`、`gogdns-linux-amd64`、`gogdns-linux-arm`、`gogdns-linux-arm64`放到与`ipk-package-tool.sh`同目录下，然后执行：
-
-```
-bash ipk-package-tools.sh all
-```
+把你要打包的相应的原始二进制程序 `gogdns-linux-386`、`gogdns-linux-amd64`、`gogdns-linux-arm`、`gogdns-linux-arm64`放到与`ipk-package-tool.sh`同目录下，然后双击运行`build-apk-manual.ps1`
