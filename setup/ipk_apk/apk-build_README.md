@@ -114,9 +114,13 @@ Write-Host "============================================" -ForegroundColor Cyan
 把你要打包的相应的原始二进制程序 `gogdns-linux-386`、`gogdns-linux-amd64`、`gogdns-linux-arm`、`gogdns-linux-arm64`放到与`ipk-package-tool.sh`同目录下，然后双击运行`build-apk-manual.ps1`
 
 使用以下命令来启动程序和设置自启动
+```
 /etc/init.d/gogdns start
 /etc/init.d/gogdns enable
+```
 
 使用以下命令来查看程序运行状态
+```
 /etc/init.d/gogdns status
+```
 
